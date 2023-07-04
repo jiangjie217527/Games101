@@ -75,10 +75,10 @@ impl Rasterizer {
         frame_buf[ind] = *color;
     }
 
-    fn draw_line(begin: &V3d, end: &V3d, height: u64, width: u64, frame_buf: &mut Vec<V3d>) {
+    fn draw_line(begin: &V3d, end: &V3d, height: u64, width: u64, frame_buf: &mut Vec<V3d>,color:Vector3<f64>) {
         let (x1, y1) = (begin.x, begin.y);
         let (x2, y2) = (end.x, end.y);
-        let line_color = Vector3::new(0.0, 255.0, 0.0);
+        let line_color = color;
         let (dx, dy, dx1, dy1, mut px, mut py): (f64, f64, f64, f64, f64, f64);
 
         dx = x2 - x1;
@@ -166,12 +166,11 @@ impl Rasterizer {
         let ind: &Vec<Vector3<usize>> = &self.ind_buf[&ind_buffer.0];
 
         let mvp = self.projection * self.view * self.model;
-
         for i in ind {
             let t = Rasterizer::get_triangle(self.width, self.height, buf, mvp, i);
-            Self::draw_line(&t.v[2], &t.v[0], self.height, self.width, &mut self.frame_buf);
-            Self::draw_line(&t.v[0], &t.v[1], self.height, self.width, &mut self.frame_buf);
-            Self::draw_line(&t.v[1], &t.v[2], self.height, self.width, &mut self.frame_buf);
+            Self::draw_line(&t.v[2], &t.v[0], self.height, self.width, &mut self.frame_buf,t.get_color(0));
+            Self::draw_line(&t.v[0], &t.v[1], self.height, self.width, &mut self.frame_buf,t.get_color(1));
+            Self::draw_line(&t.v[1], &t.v[2], self.height, self.width, &mut self.frame_buf,t.get_color(2));
         }
     }
 

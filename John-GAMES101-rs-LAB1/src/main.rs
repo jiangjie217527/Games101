@@ -24,33 +24,24 @@ fn main() {
         }
     }
     //raster
-    let mut r = Rasterizer::new(1000, 1000);
+    let mut r = Rasterizer::new(700, 700);
     let eye_pos = Vector3::new(0.0, 0.0, 5.0);
+
     let pos = vec![Vector3::new(2.0, 0.0, -2.0),
                    Vector3::new(0.0, 2.0, -2.0),
-                   Vector3::new(-2.0, 0.0, -2.0)];
-    let ind = vec![Vector3::new(0, 1, 2)];
+                   Vector3::new(-2.0, 0.0, -2.0),
+                   Vector3::new(0.0,0.0,0.0),
+                   Vector3::new(1.0, 1.0, 0.0),
+                   Vector3::new(-1.0, 0.0, 0.0)];
+    let ind = vec![Vector3::new(0,1,2)];
 
-    let pos_id = r.load_position(&pos);
-    let ind_id = r.load_indices(&ind);
+    let pos_id = r.load_position(&pos); //存储了所有存在的点，即点缓存
+    let ind_id = r.load_indices(&ind);//每个物体使用到的点
 
     let mut k = 0;//key value
     let mut frame_count = 0;
 
     //output file
-    if command_line {
-        r.clear(rasterizer::Buffer::Both);
-        r.set_model(get_model_matrix(angle));
-        r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45.0, 1.0, 0.1, 50.0));
-        r.draw_triangle(pos_id, ind_id, Primitive::Triangle);
-
-        let frame_buffer = r.frame_buffer();
-        let image = frame_buffer2cv_mat(frame_buffer);
-
-        imwrite(filename, &image, &Vector::default()).unwrap();
-        return;
-    }
     //move with key
     while k != 27 {
         r.clear(rasterizer::Buffer::Both);
@@ -59,8 +50,13 @@ fn main() {
         r.set_projection(get_projection_matrix(45.0, 1.0, 0.1, 50.0));
         r.draw_triangle(pos_id, ind_id, Primitive::Triangle);
 
-        let frame_buffer = r.frame_buffer();
+        let frame_buffer = r.frame_buffer();//framebuffer为图像
         let image = frame_buffer2cv_mat(frame_buffer);
+        //output file
+        if command_line{
+            imwrite(filename, &image, &Vector::default()).unwrap();
+            return;            
+        }
         imshow("image", &image).unwrap();
 
         k = wait_key(80).unwrap();

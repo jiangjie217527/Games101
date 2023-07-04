@@ -37,7 +37,7 @@ impl Triangle {
         let v: Vec<Vector4<f64>> = self.v.iter().map(|vec| Vector4::new(vec[0], vec[1], vec[2], 1.0)).collect();
         [v[0], v[1], v[2]]
     }
-    pub fn get_color(&self) -> Vector3<f64> {
-        self.color[0] * 255.0
+    pub fn get_color(&self,index:usize) -> Vector3<f64> {
+        self.color[index] * 255.0
     }
 }

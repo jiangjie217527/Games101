@@ -22,7 +22,9 @@ pub fn matrix4_info(m:Matrix4<f64>){
 pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
     let mut view: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
-
+    view.m14 = -eye_pos.x;
+    view.m24 = -eye_pos.y;
+    view.m34 = -eye_pos.z;
     view
 }
 
@@ -30,21 +32,40 @@ pub(crate) fn get_model_matrix(rotation_angle: f64) -> Matrix4<f64> {
     let mut model: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
     let rad = tran_ang_to_rad(rotation_angle);
-    model.m44 = 1.0;
-    model.m33 = 1.0;
     model.m11 = rad.cos();
     model.m22 = rad.cos();
     model.m12 = -rad.sin();
     model.m21 = rad.sin();
-    matrix4_info(model);
+    //matrix4_info(model);
     model
 }
 
 pub(crate) fn get_projection_matrix(eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Matrix4<f64> {
     let mut projection: Matrix4<f64> = Matrix4::identity();
+    projection.m34 = -(z_near+z_far)/2.0;
+
     /*  implement your code here  */
 
-    projection
+    let t = z_near*(tran_ang_to_rad(eye_fov/2.0).tan());
+    let r = t*aspect_ratio;
+    let l = -r;
+    let b = -t;
+    let mut m_scal = Matrix4::identity();
+    m_scal.m11 = 2.0/(r-l);
+    m_scal.m22 = 2.0/(t-b);
+    m_scal.m33 = 2.0/(z_near-z_far);
+
+    
+    //matrix4_info(projection);
+
+    let mut m_per = Matrix4::identity();
+    m_per*=z_near;
+    m_per.m44 = 0.0;
+    m_per.m33+=z_far;
+    m_per.m43 = 1.0;
+    m_per.m34 = -z_far*z_near;
+    // matrix4_info(m_per);
+    m_scal*projection*m_per
 }
 
 pub(crate) fn frame_buffer2cv_mat(frame_buffer: &Vec<V3d>) -> opencv::core::Mat {
