@@ -5,6 +5,20 @@ use opencv::imgproc::{COLOR_RGB2BGR, cvt_color};
 
 pub type V3d = Vector3<f64>;
 
+pub fn tran_ang_to_rad(a:f64)->f64{
+    std::f64::consts::PI/180.0*a
+}
+
+pub fn matrix4_info(m:Matrix4<f64>){
+    for i in 0..4{
+        for j in 0..4{
+            print!("{},",m[(i,j)]);
+        }
+        println!("");
+    }
+    println!("----------");
+}
+
 pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
     let mut view: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
@@ -15,7 +29,14 @@ pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
 pub(crate) fn get_model_matrix(rotation_angle: f64) -> Matrix4<f64> {
     let mut model: Matrix4<f64> = Matrix4::identity();
     /*  implement your code here  */
-
+    let rad = tran_ang_to_rad(rotation_angle);
+    model.m44 = 1.0;
+    model.m33 = 1.0;
+    model.m11 = rad.cos();
+    model.m22 = rad.cos();
+    model.m12 = -rad.sin();
+    model.m21 = rad.sin();
+    matrix4_info(model);
     model
 }
 

@@ -12,6 +12,7 @@ use utils::*;
 
 fn main() {
     let mut angle = 0.0;
+
     let mut command_line = false;
     let mut filename = "output.png";
     let argv: Vec<String> = env::args().collect();
@@ -22,8 +23,8 @@ fn main() {
             filename = &argv[2];
         }
     }
-
-    let mut r = Rasterizer::new(700, 700);
+    //raster
+    let mut r = Rasterizer::new(1000, 1000);
     let eye_pos = Vector3::new(0.0, 0.0, 5.0);
     let pos = vec![Vector3::new(2.0, 0.0, -2.0),
                    Vector3::new(0.0, 2.0, -2.0),
@@ -33,8 +34,10 @@ fn main() {
     let pos_id = r.load_position(&pos);
     let ind_id = r.load_indices(&ind);
 
-    let mut k = 0;
+    let mut k = 0;//key value
     let mut frame_count = 0;
+
+    //output file
     if command_line {
         r.clear(rasterizer::Buffer::Both);
         r.set_model(get_model_matrix(angle));
@@ -48,6 +51,7 @@ fn main() {
         imwrite(filename, &image, &Vector::default()).unwrap();
         return;
     }
+    //move with key
     while k != 27 {
         r.clear(rasterizer::Buffer::Both);
         r.set_model(get_model_matrix(angle));
@@ -60,7 +64,7 @@ fn main() {
         imshow("image", &image).unwrap();
 
         k = wait_key(80).unwrap();
-        println!("frame count: {}", frame_count);
+        //println!("frame count: {}", frame_count);
         if k == 'a' as i32 {
             angle += 10.0;
         } else if k == 'd' as i32 {
