@@ -9,6 +9,7 @@ use opencv::highgui::{imshow, wait_key};
 use opencv::imgcodecs::imwrite;
 use crate::rasterizer::{Primitive, Rasterizer};
 use utils::*;
+use std::io;
 
 fn main() {
     let mut angle = 0.0;
@@ -41,11 +42,14 @@ fn main() {
     let mut k = 0;//key value
     let mut frame_count = 0;
 
+    //是否绕任意轴旋转
+    let mut str = String::new();
+    io::stdin().read_line(&mut str).expect("fail");
     //output file
     //move with key
     while k != 27 {
         r.clear(rasterizer::Buffer::Both);
-        r.set_model(get_model_matrix(angle));
+        r.set_model(get_model_matrix(angle,str.clone()));
         r.set_view(get_view_matrix(eye_pos));
         r.set_projection(get_projection_matrix(45.0, 1.0, 0.1, 50.0));
         r.draw_triangle(pos_id, ind_id, Primitive::Triangle);

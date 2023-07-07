@@ -5,6 +5,21 @@ use opencv::imgproc::{COLOR_RGB2BGR, cvt_color};
 
 pub type V3d = Vector3<f64>;
 
+pub fn get_rotation(axis:Vector3<f64>,angle:f64)->Matrix4<f64>{
+    let rad = tran_ang_to_rad(angle);
+    let mut arbitrary_rotation = Matrix4::identity()*rad.cos();
+    let t3 = axis * axis.transpose() *(1.0-rad.cos());
+    let t4 = t3.to_homogeneous();
+    arbitrary_rotation+=t4;
+    let tmp = Matrix4::new(0.0,-axis.z,axis.y,0.0,
+    axis.z,0.0,-axis.x,0.0,
+-axis.y,axis.x,0.0,0.0,
+0.0,0.0,0.0,1.0);
+    arbitrary_rotation+=tmp*rad.sin();
+    arbitrary_rotation.m44=1.0;
+    arbitrary_rotation
+}
+
 pub fn tran_ang_to_rad(a:f64)->f64{
     std::f64::consts::PI/180.0*a
 }
@@ -28,16 +43,24 @@ pub(crate) fn get_view_matrix(eye_pos: V3d) -> Matrix4<f64> {
     view
 }
 
-pub(crate) fn get_model_matrix(rotation_angle: f64) -> Matrix4<f64> {
-    let mut model: Matrix4<f64> = Matrix4::identity();
-    /*  implement your code here  */
-    let rad = tran_ang_to_rad(rotation_angle);
-    model.m11 = rad.cos();
-    model.m22 = rad.cos();
-    model.m12 = -rad.sin();
-    model.m21 = rad.sin();
-    //matrix4_info(model);
-    model
+pub(crate) fn get_model_matrix(rotation_angle: f64,str:String) -> Matrix4<f64> {
+    let tmp =  String::from("r");
+    if str == String::from("r\n"){
+        // println!("r");
+        get_rotation(Vector3::new(1.0,2.0,3.0), rotation_angle)
+    }
+    else{
+        let mut model: Matrix4<f64> = Matrix4::identity();
+        /*  implement your code here  */
+        let rad = tran_ang_to_rad(rotation_angle);
+        model.m11 = rad.cos();
+        model.m22 = rad.cos();
+        model.m12 = -rad.sin();
+        model.m21 = rad.sin();
+        //matrix4_info(model);
+        model
+    }
+
 }
 
 pub(crate) fn get_projection_matrix(eye_fov: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Matrix4<f64> {
