@@ -50,6 +50,7 @@ fn main() -> Result<()> {
     let mut k = 0;
     let mut frame_count = 0;
     let mut str = String::new();
+    println!("输入r并回车来允许旋转，其他任意输入禁止旋转");
     io::stdin().read_line(&mut str).expect("fail");
     let mut angle = 180.0;
     let command_line = false;
@@ -69,7 +70,7 @@ fn main() -> Result<()> {
         }
         imshow("image", &image)?;
         println!(
-            "MSAA*4：frame count: {},time consume:{}毫秒",
+            "FXAA(simple)：frame count: {},time consume:{}毫秒",
             frame_count,
             now.elapsed().as_millis()
         );
