@@ -1,9 +1,11 @@
 mod triangle;
 mod rasterizer;
 mod utils;
+mod aabb;
 
 extern crate opencv;
-
+use opencv::imgcodecs::imwrite;
+use opencv::core::Vector;
 use nalgebra::{Vector3};
 use opencv::{
     Result,
@@ -11,6 +13,8 @@ use opencv::{
 use opencv::highgui::{imshow, wait_key};
 use crate::rasterizer::{Primitive, Rasterizer};
 use utils::*;
+use std::io;
+use std::time::Instant;
 
 fn main() -> Result<()> {
     let mut r = Rasterizer::new(700, 700);
@@ -39,21 +43,34 @@ fn main() -> Result<()> {
     let col_id = r.load_colors(&cols);
     let mut k = 0;
     let mut frame_count = 0;
-
+    let mut str = String::new();
+    io::stdin().read_line(&mut str).expect("fail");
+    let mut angle = 180.0;
+    let command_line = false;
     while k != 27 {
+        let now = Instant::now();
         r.clear(rasterizer::Buffer::Both);
-        r.set_model(get_model_matrix(0.0));
+        r.set_model(get_model_matrix(angle,str.clone()));
         r.set_view(get_view_matrix(eye_pos));
         r.set_projection(get_projection_matrix(45.0, 1.0, 0.1, 50.0));
         r.draw(pos_id, ind_id, col_id, Primitive::Triangle);
 
         let frame_buffer = r.frame_buffer();
         let image = frame_buffer2cv_mat(frame_buffer);
-
+        if command_line{
+            imwrite("output.png", &image, &Vector::default()).unwrap();
+            return Ok(());            
+        }
         imshow("image", &image)?;
+        println!("加反锯齿前：frame count: {},time consume:{}毫秒", frame_count,now.elapsed().as_millis());
+        frame_count += 1;        
         k = wait_key(2000).unwrap();
-        println!("frame count: {}", frame_count);
-        frame_count += 1;
+        if k == 'a' as i32 {
+            angle += 10.0;
+        } else if k == 'd' as i32 {
+            angle -= 10.0;
+        } 
+
     }
 
     Ok(())
