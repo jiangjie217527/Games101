@@ -34,7 +34,7 @@ pub(crate) fn get_view_matrix(eye_pos: Vector3<f64>) -> Matrix4<f64> {
 pub(crate) fn get_model_matrix(rotation_angle: f64, str: String) -> Matrix4<f64> {
     // let mut model: Matrix4<f64> = Matrix4::identity();
     /*  implement what you've done in LAB1  */
-    let tmp = String::from("r");
+    // let tmp = String::from("r");
     if str == String::from("r\n") {
         // println!("r");
         get_rotation(Vector3::new(1.0, 2.0, 3.0), rotation_angle)
