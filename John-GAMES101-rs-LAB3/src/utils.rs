@@ -109,7 +109,7 @@ pub fn choose_shader_texture(method: &str,
         println!("Rasterizing using the normal shader");
         active_shader = normal_fragment_shader;
     } else if method == "texture" {
-        println!("Rasterizing using the normal shader");
+        println!("Rasterizing using the texture shader");
         active_shader = texture_fragment_shader;
         tex = Some(Texture::new(&(obj_path.to_owned() + "spot_texture.png")));
     } else if method == "phong" {
@@ -173,8 +173,14 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     for light in lights {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
-
-
+        let v=(eye_pos-point).normalize();
+        let l=(light.position-point).normalize();
+        let h=(v+l).normalize();
+        let r_square=(light.position-point).dot(&(light.position-point));
+        let la=ka.component_mul(&amb_light_intensity);
+        let ld=kd.component_mul(&light.intensity)/r_square*normal.normalize().dot(&l).max(0.0);
+        let ls=ks.component_mul(&light.intensity)/r_square*(normal.normalize().dot(&h).max(0.0)).powf(p);
+        result_color+=la+ld+ls;
     }
     result_color * 255.0
 }

@@ -29,7 +29,16 @@ fn main() -> Result<()> {
     let mut tex = Texture::new(&(obj_path.clone() + &texture_path));
     let mut active_shader: fn(&FragmentShaderPayload) -> Vector3<f64> = normal_fragment_shader; // 默认为<normal shader>
     let ags: Vec<String> = env::args().collect();
+    //输出文件名
     if ags.len() >= 2 { filename = ags[1].clone(); }
+    //渲染方式
+    /**
+     * normal-> 默认
+     * phong -> Blinn-Phong光照
+     * texture -> 正常纹理
+     * bump -> 凹凸材质
+     * displacement -> 
+     */
     if ags.len() >= 3 {
         let (shader, t) =
             choose_shader_texture(&ags[2], &obj_path);
