@@ -88,6 +88,7 @@ pub fn load_triangles(obj_file: &str) -> Vec<Triangle> {
     let (models, _) = tobj::load_obj(&obj_file, &tobj::LoadOptions::default()).unwrap();
     let mesh = &models[0].mesh;
     let n = mesh.indices.len() / 3;
+    println!("{}",n);
     let mut triangles = vec![Triangle::default(); n];
 
     // 遍历模型的每个面
@@ -118,20 +119,20 @@ pub fn choose_shader_texture(
 ) -> (fn(&FragmentShaderPayload) -> Vector3<f64>, Option<Texture>) {
     let mut active_shader: fn(&FragmentShaderPayload) -> Vector3<f64> = phong_fragment_shader;
     let mut tex = None;
-    if method == "normal" {
+    if method == "normal" || method == "0" {
         println!("Rasterizing using the normal shader");
         active_shader = normal_fragment_shader;
-    } else if method == "texture" {
+    } else if method == "texture" || method == "2"  {
         println!("Rasterizing using the texture shader");
         active_shader = texture_fragment_shader;
         tex = Some(Texture::new(&(obj_path.to_owned() + "spot_texture.png")));
-    } else if method == "phong" {
+    } else if method == "phong" || method == "1"  {
         println!("Rasterizing using the phong shader");
         active_shader = phong_fragment_shader;
-    } else if method == "bump" {
+    } else if method == "bump" || method == "3"  {
         println!("Rasterizing using the bump shader");
         active_shader = bump_fragment_shader;
-    } else if method == "displacement" {
+    } else if method == "displacement" || method == "4"  {
         println!("Rasterizing using the displacement shader");
         active_shader = displacement_fragment_shader;
     }
@@ -179,6 +180,23 @@ fn get_light_resylt(
     result_color * 255.0
 }
 
+fn get_tbn_ln(normal: Vector3<f64>,payload: &FragmentShaderPayload,kh:f64,kn:f64)->(Matrix3<f64>,Vector3<f64>){
+    let (x,y,z) = (normal.x,normal.y,normal.z);
+    let t=Vector3::new(x*y/(x*x+z*z).sqrt(),(x*x+z*z).sqrt(),z*y/(x*x+z*z).sqrt());
+    let b=normal.cross(&t);
+    let tbn=Matrix3::new(
+        t.x,b.x,x,
+        t.y,b.y,y,
+        t.z,b.z,z,
+    );
+    let (u,v)=(payload.tex_coords.x,payload.tex_coords.y);
+    let texture=payload.texture.as_ref().unwrap();
+    let (w,h)=(texture.width as f64,texture.height as f64);
+    let d_u=kh*kn*(texture.get_color(u+1.0/w,v).norm()-texture.get_color(u,v).norm());
+    let d_v=kh*kn*(texture.get_color(u,v+1.0/h).norm()-texture.get_color(u,v).norm());
+    (tbn,Vector3::new(-d_u,-d_v,1.0))
+}
+
 pub fn normal_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let result_color = (payload.normal.xyz().normalize() + Vector3::new(1.0, 1.0, 1.0)) / 2.0;
     result_color * 255.0
@@ -205,23 +223,19 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let p = 150.0;
 
-    // ping point的信息
-    let normal = payload.normal;
-    let point = payload.view_pos;
-    let color = payload.color;
-
     get_light_resylt(
         lights,
         eye_pos,
-        point,
+        payload.view_pos,
         amb_light_intensity,
-        normal,
+        payload.normal.normalize(),
         p,
         ka,
         kd,
         ks,
     )
 }
+
 
 pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let ka = Vector3::new(0.005, 0.005, 0.005);
@@ -248,22 +262,19 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let p = 150.0;
 
-    let color = texture_color;
-    let point = payload.view_pos;
-    let normal = payload.normal;
-
     get_light_resylt(
         lights,
         eye_pos,
-        point,
+        payload.view_pos,
         amb_light_intensity,
-        normal,
+        payload.normal.normalize(),
         p,
         ka,
         kd,
         ks,
     )
 }
+
 
 pub fn bump_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let ka = Vector3::new(0.005, 0.005, 0.005);
@@ -283,28 +294,9 @@ pub fn bump_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let eye_pos = Vector3::new(0.0, 0.0, 10.0);
 
     let p = 150.0;
-
-    let mut normal = payload.normal;
-    let point = payload.view_pos;
-    let color = payload.color;
-
     let (kh, kn) = (0.2, 0.1);
-    
-    let (x,y,z) = (normal.x,normal.y,normal.z);
-    let t=Vector3::new(x*y/(x*x+z*z).sqrt(),(x*x+z*z).sqrt(),z*y/(x*x+z*z).sqrt());
-    let b=normal.cross(&t);
-    let tbn=Matrix3::new(
-        t.x,b.x,x,
-        t.y,b.y,y,
-        t.z,b.z,z,
-    );
-    let (u,v)=(payload.tex_coords.x,payload.tex_coords.y);
-    let texture=payload.texture.as_ref().unwrap();
-    let (w,h)=(texture.width as f64,texture.height as f64);
-    let d_u=kh*kn*(texture.get_color(u+1.0/w,v).norm()-texture.get_color(u,v).norm());
-    let d_v=kh*kn*(texture.get_color(u,v+1.0/h).norm()-texture.get_color(u,v).norm());
-    let ln=Vector3::new(-d_u,-d_v,1.0);
 
+    let (tbn,ln) =get_tbn_ln(payload.normal.normalize(), payload,kh,kn);
     (tbn*ln).normalize()*255.0
 }
 
@@ -326,30 +318,16 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let eye_pos = Vector3::new(0.0, 0.0, 10.0);
 
     let p = 150.0;
-
-    let normal = payload.normal;
-    let point = payload.view_pos;
-    let color = payload.color;
-
+    let normal = payload.normal.normalize();
     let (kh, kn) = (0.2, 0.1);
 
-    // TODO: Implement displacement mapping here
-    // Let n = normal = (x, y, z)
-    // Vector t = (x*y/sqrt(x*x+z*z),sqrt(x*x+z*z),z*y/sqrt(x*x+z*z))
-    // Vector b = n cross product t
-    // Matrix TBN = [t b n]
-    // dU = kh * kn * (h(u+1/w,v)-h(u,v))
-    // dV = kh * kn * (h(u,v+1/h)-h(u,v))
-    // Vector ln = (-dU, -dV, 1)
-    // Position p = p + kn * n * h(u,v)
-    // Normal n = normalize(TBN * ln)
-
+    let (tbn,ln) =get_tbn_ln(normal, payload,kh,kn);
     get_light_resylt(
         lights,
         eye_pos,
-        point,
+        payload.view_pos+ kn * normal * payload.texture.as_ref().unwrap().get_color(payload.tex_coords.x,payload.tex_coords.y).norm(),
         amb_light_intensity,
-        normal,
+        (tbn * ln).normalize(),
         p,
         ka,
         kd,
