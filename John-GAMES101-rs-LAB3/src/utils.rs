@@ -40,11 +40,12 @@ pub(crate) fn get_projection_matrix(
     z_near: f64,
     z_far: f64,
 ) -> M4f {
-    let mut projection: Matrix4<f64> = Matrix4::identity();
-    projection.m34 = -(z_near + z_far) / 2.0;
+    let mut m_trans: Matrix4<f64> = Matrix4::identity();
+    m_trans.m34 = -(z_near + z_far) / 2.0;
 
     /*  implement your code here  */
 
+    //同Lab2  但是上下颠倒
     let b = z_near * (tran_ang_to_rad(eye_fov / 2.0).tan());
     let t = -b;
     let r = t * aspect_ratio;
@@ -62,7 +63,7 @@ pub(crate) fn get_projection_matrix(
     m_per.m43 = 1.0;
     m_per.m34 = -z_far * z_near;
 
-    m_scal * projection * m_per
+    m_scal * m_trans * m_per
 }
 
 pub(crate) fn frame_buffer2cv_mat(frame_buffer: &Vec<V3f>) -> Mat {
@@ -148,7 +149,7 @@ struct Light {
     pub intensity: V3f,
 }
 
-fn get_light_resylt(
+fn get_light_result(
     lights: Vec<Light>,
     eye_pos: Vector3<f64>,
     point: Vector3<f64>,
@@ -169,6 +170,7 @@ fn get_light_resylt(
         let l = (light.position - point).normalize();
         let h = (v + l).normalize();
         let r_square = (light.position - point).dot(&(light.position - point));
+        
         let la = ka.component_mul(&amb_light_intensity);
         let ld =
             kd.component_mul(&light.intensity) / r_square * normal.normalize().dot(&l).max(0.0);
@@ -233,7 +235,7 @@ pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let p = 150.0;
 
-    get_light_resylt(
+    get_light_result(
         lights,
         eye_pos,
         payload.view_pos,
@@ -271,7 +273,7 @@ pub fn texture_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 
     let p = 150.0;
 
-    get_light_resylt(
+    get_light_result(
         lights,
         eye_pos,
         payload.view_pos,
@@ -330,7 +332,7 @@ pub fn displacement_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
     let (kh, kn) = (0.2, 0.1);
 
     let (tbn, ln) = get_tbn_ln(normal, payload, kh, kn);
-    get_light_resylt(
+    get_light_result(
         lights,
         eye_pos,
         payload.view_pos

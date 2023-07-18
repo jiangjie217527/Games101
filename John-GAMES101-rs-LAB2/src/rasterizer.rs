@@ -6,7 +6,6 @@ use crate::{
 use nalgebra::{Matrix4, Vector2, Vector3, Vector4};
 use std::collections::HashMap;
 
-
 #[allow(dead_code)]
 pub enum Buffer {
     Color,
@@ -63,15 +62,14 @@ impl Rasterizer {
     }
 
     fn get_index(&self, x: usize, y: usize) -> usize {
+        //先行后列
         ((self.height - 1 - y as u64) * self.width + x as u64) as usize
     }
 
-    fn get_sample_index(&self, x: usize, y: usize, x_offset: usize, y_offset: usize) -> f64 {
-        (self.height as f64 * 2.0 - 1.0 - y as f64 * 2.0 - y_offset as f64)
-            * self.width as f64
-            * 2.0
-            + x as f64 * 2.0
-            + x_offset as f64
+    fn get_sample_index(&self, x: usize, y: usize, x_offset: usize, y_offset: usize) -> usize {
+        (self.height as usize * 2 - 1 - y * 2 - y_offset) * self.width as usize * 2
+            + x * 2
+            + x_offset
     }
 
     fn set_pixel(&mut self, point: &Vector3<f64>, color: &Vector3<f64>) {
@@ -159,7 +157,9 @@ impl Rasterizer {
 
         let f1 = (50.0 - 0.1) / 2.0;
         let f2 = (50.0 + 0.1) / 2.0;
-
+        //model 模型变换（旋转）
+        //view  视图变换
+        //projection 把模型顶点(旋转后的世界坐标下)投影成二维（获得光栅器上的坐标）
         let mvp = self.projection * self.view * self.model;
 
         for i in ind {
@@ -168,59 +168,65 @@ impl Rasterizer {
                 mvp * to_vec4(buf[i[0]], Some(1.0)), // homogeneous coordinates
                 mvp * to_vec4(buf[i[1]], Some(1.0)),
                 mvp * to_vec4(buf[i[2]], Some(1.0)),
-            ];
+            ]; //根据上述对MVP(model,view,projection)的分析，得到的点其实是在二维平面上
 
             for vec in v.iter_mut() {
                 *vec = *vec / vec.w;
-            }
+            } //归一化
+
             for vert in v.iter_mut() {
                 vert.x = 0.5 * self.width as f64 * (vert.x + 1.0);
-                vert.y = 0.5 * self.height as f64 * (vert.y + 1.0);
-                vert.z = vert.z * f1 + f2;
+                vert.y = 0.5 * self.height as f64 * (vert.y + 1.0); //[-1,1]换到[0,1]
+                vert.z = vert.z * f1 + f2; //??
             }
+
             for j in 0..3 {
-                // t.set_vertex(j, Vector3::new(v[j].x, v[j].y, v[j].z));
                 t.set_vertex(j, v[j].xyz());
             }
-            let col_x = col[i[0]];
-            let col_y = col[i[1]];
-            let col_z = col[i[2]];
-            t.set_color(0, col_x[0], col_x[1], col_x[2]);
-            t.set_color(1, col_y[0], col_y[1], col_y[2]);
-            t.set_color(2, col_z[0], col_z[1], col_z[2]);
+
+            let col = col[i[0]];
+            t.set_color(0, col[0], col[1], col[2]);
+            //only the  color of the first vertex was need
+            //反走样：先模糊再采样
             if command {
-                self.MSAA_rasterize_triangle(&t);
+                //control the process
+                self.msaa_rasterize_triangle(&t);
             } else {
-                self.FXAA_rasterize_triangle(&t);
+                self.fxaa_rasterize_triangle(&t);
             }
         }
         if !command {
-            self.FXAA_process();
+            self.fxaa_process();
         }
     }
 
-    pub fn MSAA_rasterize_triangle(&mut self, t: &Triangle) {
+    pub fn msaa_rasterize_triangle(&mut self, t: &Triangle) {
         /*  implement your code here  */
         //传入AABB
         let aabb = Aabb::new(t);
         //对于所有像素，判断是不是在三角形里面
         for x in aabb.minimum.x..=aabb.maximum.x {
             for y in aabb.minimum.y..=aabb.maximum.y {
-                let mut flg = false;
+                let mut flg = false; //check whether one of the sample will uodate the pixel
                 for x_offset in 0..2 {
                     for y_offset in 0..2 {
-                        let x_0 = x as f64 + 0.25 + x_offset as f64 * 0.5;
-                        let y_0 = y as f64 + 0.25 + x_offset as f64 * 0.5;
-                        if inside_triangle(x_0 as f64, y_0 as f64, &t.v) {
+                        let xx = x as f64 + 0.25 + x_offset as f64 * 0.5;
+                        let yy = y as f64 + 0.25 + x_offset as f64 * 0.5;
+                        if inside_triangle(xx as f64, yy as f64, &t.v) {
+                            //计算重心
+                            //为什么插值->顶点处的值
+                            //使用重心坐标插值
+                            //三角形的坐标系统
+                            //(x,y) = a A+ B b + C c
+                            //a+b+c = 1  内部非负
+                            //default
                             let (c1, c2, c3) = compute_barycentric2d(x as f64, y as f64, &t.v);
-                            let z =
-                                (c1 * t.v[0].z / 1.0 + c2 * t.v[1].z / 1.0 + c3 * t.v[2].z / 1.0)
-                                    / (c1 / 1.0 + c2 / 1.0 + c3 / 1.0);
+                            let z_interpolated = c1 * t.v[0].z + c2 * t.v[1].z + c3 * t.v[2].z;
                             let index = self.get_sample_index(x, y, x_offset, y_offset) as usize;
-                            if z < self.depth_buf[index] {
+                            //z-buffer
+                            if z_interpolated < self.depth_buf[index] {
                                 flg = true;
-                                self.depth_buf[index] = z;
-                                self.set_sample_pixel(x, y, x_offset, y_offset, &t.get_color());
+                                self.depth_buf[index] = z_interpolated; //这里不需要set
                             }
                         }
                     }
@@ -230,7 +236,7 @@ impl Rasterizer {
                     for x_offset in 0..2 {
                         for y_offset in 0..2 {
                             color += self.frame_sample
-                                [self.get_sample_index(x, y, x_offset, y_offset) as usize]
+                                [self.get_sample_index(x, y, x_offset, y_offset)]
                                 / 4.0;
                         }
                     }
@@ -241,35 +247,35 @@ impl Rasterizer {
     }
 
     //计划写一个最简单的FXAA
-    pub fn FXAA_rasterize_triangle(&mut self, t: &Triangle) {
+    pub fn fxaa_rasterize_triangle(&mut self, t: &Triangle) {
         /*  implement your code here  */
         //传入AABB
         let aabb = Aabb::new(t);
         //对于所有像素，判断是不是在三角形里面
         for x in aabb.minimum.x..=aabb.maximum.x {
             for y in aabb.minimum.y..=aabb.maximum.y {
+                //这里同正常的一样
                 if inside_triangle(x as f64, y as f64, &t.v) {
                     let (c1, c2, c3) = compute_barycentric2d(x as f64, y as f64, &t.v);
-                    let z = (c1 * t.v[0].z / 1.0 + c2 * t.v[1].z / 1.0 + c3 * t.v[2].z / 1.0)
-                        / (c1 / 1.0 + c2 / 1.0 + c3 / 1.0);
+                    let z_interpolated = c1 * t.v[0].z + c2 * t.v[1].z + c3 * t.v[2].z;
                     let index = self.get_index(x, y);
-                    if z < self.depth_buf[index] {
-                        self.depth_buf[index] = z;
+                    if z_interpolated < self.depth_buf[index] {
+                        self.depth_buf[index] = z_interpolated;
                         self.set_pixel(&Vector3::new(x as f64, y as f64, 0.0), &t.get_color());
                     }
                 }
             }
         }
     }
-
-    pub fn FXAA_process(&mut self) {
+    //参考https://zhuanlan.zhihu.com/p/373379681 FXAA算法演义
+    pub fn fxaa_process(&mut self) {
         for x in 1..self.height - 1 {
             for y in 1..self.width - 1 {
-                let lumaContrast = self.compute_luma_contrast(x, y);
-                if lumaContrast[5] > 0.05 {
+                let luma_contrast = self.compute_luma_contrast(x, y);
+                if luma_contrast[5] > 0.05 {
                     let mut delta: [f64; 4] = [0.0; 4];
                     for i in 0..4 {
-                        delta[i] = lumaContrast[i] - lumaContrast[4];
+                        delta[i] = luma_contrast[i] - luma_contrast[4];
                     }
                     //水平方向的平均值
                     let v = fabs(delta[0] + delta[1]);
@@ -277,12 +283,7 @@ impl Rasterizer {
                     let h = fabs(delta[2] + delta[3]);
 
                     //确定法线
-                    let mut norm: nalgebra::Matrix<
-                        f64,
-                        nalgebra::Const<2>,
-                        nalgebra::Const<1>,
-                        nalgebra::ArrayStorage<f64, 2, 1>,
-                    > = Vector2::zeros();
+                    let mut norm = Vector2::zeros();
                     //水平方向是法线
                     if v > h {
                         norm.x = sign(fabs(delta[0]) - fabs(delta[1]));
@@ -310,11 +311,11 @@ impl Rasterizer {
     pub fn compute_luma_contrast(&self, x: u64, y: u64) -> [f64; 6] {
         let v: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         let mut tmp: [f64; 5] = [0.0; 5];
-        tmp[4] = get_lum(self.frame_buf[self.get_index(x as usize, y as usize)]);
+        tmp[4] = get_luma(self.frame_buf[self.get_index(x as usize, y as usize)]);
         let mut mx = tmp[4];
         let mut mn = tmp[4];
         for i in 0..4 {
-            tmp[i] = get_lum(
+            tmp[i] = get_luma(
                 self.frame_buf
                     [self.get_index((x as i32 + v[i].0) as usize, (y as i32 + v[i].1) as usize)],
             );
@@ -328,7 +329,7 @@ impl Rasterizer {
         &self.frame_buf
     }
 }
-pub fn get_lum(c: Vector3<f64>) -> f64 {
+pub fn get_luma(c: Vector3<f64>) -> f64 {
     (c[0] + c[1] + c[2]) as f64 / 3.0
 }
 pub fn to_vec4(v3: Vector3<f64>, w: Option<f64>) -> Vector4<f64> {
@@ -337,11 +338,18 @@ pub fn to_vec4(v3: Vector3<f64>, w: Option<f64>) -> Vector4<f64> {
 
 fn inside_triangle(x: f64, y: f64, v: &[Vector3<f64>; 3]) -> bool {
     /*  implement your code here  */
-    let p = Vector3::new(x, y, 0.0);
-    let r1 = (v[1] - v[0]).cross(&(p - v[0]));
-    let r2 = (v[2] - v[1]).cross(&(p - v[1]));
-    let r3 = (v[0] - v[2]).cross(&(p - v[2]));
-    (r1.z < 0.0 && r2.z < 0.0 && r3.z < 0.0) || (r1.z > 0.0 && r2.z > 0.0 && r3.z > 0.0)
+    //come from intro
+
+    //The cross product tells you that a point is to the left or right of a line,
+    //and if the point is on the same side of all three lines of the triangle, then
+    //the point is inside the triangle.
+    //v[(i + 1) %3] - v[i] 表示三角形某条边的向量
+    let p = Vector3::new(x, y, 0.0); //采样点
+    let side1 = (v[1] - v[0]).cross(&(p - v[0]));
+    let side2 = (v[2] - v[1]).cross(&(p - v[1]));
+    let side3 = (v[0] - v[2]).cross(&(p - v[2]));
+    (side1.z < 0.0 && side2.z < 0.0 && side3.z < 0.0)
+        || (side1.z > 0.0 && side2.z > 0.0 && side3.z > 0.0)
 }
 
 fn compute_barycentric2d(x: f64, y: f64, v: &[Vector3<f64>; 3]) -> (f64, f64, f64) {

@@ -57,8 +57,8 @@ pub(crate) fn get_projection_matrix(
     z_near: f64,
     z_far: f64,
 ) -> Matrix4<f64> {
-    let mut projection: Matrix4<f64> = Matrix4::identity();
-    projection.m34 = -(z_near + z_far) / 2.0;
+    let mut m_trans: Matrix4<f64> = Matrix4::identity();
+    m_trans.m34 = -(z_near + z_far) / 2.0;
 
     /*  implement your code here  */
 
@@ -71,16 +71,13 @@ pub(crate) fn get_projection_matrix(
     m_scal.m22 = 2.0 / (t - b);
     m_scal.m33 = 2.0 / (z_near - z_far);
 
-    //matrix4_info(projection);
-
     let mut m_per = Matrix4::identity();
     m_per *= z_near;
     m_per.m44 = 0.0;
     m_per.m33 += z_far;
     m_per.m43 = 1.0;
     m_per.m34 = -z_far * z_near;
-    // matrix4_info(m_per);
-    m_scal * projection * m_per
+    m_scal * m_trans * m_per
 }
 
 pub(crate) fn frame_buffer2cv_mat(frame_buffer: &Vec<Vector3<f64>>) -> opencv::core::Mat {
