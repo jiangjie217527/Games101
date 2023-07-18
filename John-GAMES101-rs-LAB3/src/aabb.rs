@@ -22,13 +22,13 @@ pub fn fmin(x: f64, y: f64) -> f64 {
     }
 }
 
-pub fn fabs(x: f64) -> f64 {
-    if x < 0.0 {
-        -x
-    } else {
-        x
-    }
-}
+// pub fn fabs(x: f64) -> f64 {
+//     if x < 0.0 {
+//         -x
+//     } else {
+//         x
+//     }
+// }
 
 impl Aabb {
     pub fn new(t: &Triangle) -> Self {

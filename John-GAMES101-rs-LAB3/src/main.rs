@@ -18,8 +18,15 @@ use opencv::Result;
 use std::env;
 use utils::*;
 
+/**
+ * normal-> 默认
+ * phong -> Blinn-Phong光照
+ * texture -> 正常纹理
+ * bump -> 凹凸材质
+ * displacement ->
+ */
 fn main() -> Result<()> {
-    let obj_file = "./models/spot/spot_triangulated_good.obj";
+    let obj_file = "./models/spot/cube.obj";
     let triangles = load_triangles(&obj_file);
     println!("load successfully");
     let angle = 140.0;
@@ -35,13 +42,6 @@ fn main() -> Result<()> {
         filename = ags[1].clone();
     }
     //渲染方式
-    /**
-     * normal-> 默认
-     * phong -> Blinn-Phong光照
-     * texture -> 正常纹理
-     * bump -> 凹凸材质
-     * displacement ->
-     */
     if ags.len() >= 3 {
         let (shader, t) = choose_shader_texture(&ags[2], &obj_path);
         active_shader = shader;
