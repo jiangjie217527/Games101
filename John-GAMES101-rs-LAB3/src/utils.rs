@@ -156,8 +156,11 @@ fn get_light_result(
     amb_light_intensity: Vector3<f64>,
     normal: Vector3<f64>,
     p: f64,
+    //ambient coefficient
     ka: Vector3<f64>,
+    //diffuse coefficient
     kd: Vector3<f64>,
+    //specular coefficient
     ks: Vector3<f64>,
 ) -> V3f {
     let mut result_color = Vector3::zeros(); // 保存光照结果
@@ -166,17 +169,26 @@ fn get_light_result(
     for light in lights {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular*
         // components are. Then, accumulate that result on the *result_color* object.
+        //v Viewer direction
         let v = (eye_pos - point).normalize();
+        //l Light direction
         let l = (light.position - point).normalize();
+        //h 半程向量
         let h = (v + l).normalize();
         let r_square = (light.position - point).dot(&(light.position - point));
-        
+        //每个分量方向单独乘
+        //reflected ambient light
         let la = ka.component_mul(&amb_light_intensity);
-        let ld =
+        //diffusely reflected light
+        //I/r^2 energy arrived at the shading point
+        // n * l energy received by the shading point
+
+        let l_d =
             kd.component_mul(&light.intensity) / r_square * normal.normalize().dot(&l).max(0.0);
+        //specularly reflected light
         let ls = ks.component_mul(&light.intensity) / r_square
             * (normal.normalize().dot(&h).max(0.0)).powf(p);
-        result_color += la + ld + ls;
+        result_color += la + l_d + ls;
     }
     result_color * 255.0
 }
@@ -215,6 +227,8 @@ pub fn normal_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
 }
 
 pub fn phong_fragment_shader(payload: &FragmentShaderPayload) -> V3f {
+    //光照模型
+
     // 泛光、漫反射、高光系数
     let ka = Vector3::new(0.005, 0.005, 0.005);
     let kd = payload.color;

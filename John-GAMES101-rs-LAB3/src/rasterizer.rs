@@ -130,11 +130,11 @@ impl Rasterizer {
             for y in aabb.minimum.y..=aabb.maximum.y {
                 if inside_triangle(x as f64 + 0.5, y as f64 + 0.5, &t.v) {
                     let (c1, c2, c3) = compute_barycentric2d(x as f64 + 0.5, y as f64 + 0.5, &t.v);
-                    let z = (c1 * t.v[0].z / 1.0 + c2 * t.v[1].z / 1.0 + c3 * t.v[2].z / 1.0)
-                        / (c1 / 1.0 + c2 / 1.0 + c3 / 1.0);
+                    let z_interpolated = c1 * t.v[0].z + c2 * t.v[1].z + c3 * t.v[2].z;
                     let index = self.get_index(x, y);
-                    if z < self.depth_buf[index] {
-                        self.depth_buf[index] = z;
+
+                    if z_interpolated < self.depth_buf[index] {
+                        self.depth_buf[index] = z_interpolated;
                         let color = Rasterizer::interpolate_vec3(
                             c1, c2, c3, t.color[0], t.color[1], t.color[2], 1.0,
                         );
@@ -160,8 +160,9 @@ impl Rasterizer {
                             None => None,
                             Some(texx) => Some(Rc::new(texx)),
                         };
-                        let mut fspl = FragmentShaderPayload::new(&color, &normal, &texcoord, tex);
-                        fspl.view_pos = Rasterizer::interpolate_vec3(
+                        let mut payload =
+                            FragmentShaderPayload::new(&color, &normal, &texcoord, tex);
+                        payload.view_pos = Rasterizer::interpolate_vec3(
                             c1,
                             c2,
                             c3,
@@ -172,7 +173,7 @@ impl Rasterizer {
                         );
                         let final_color = match self.fragment_shader {
                             None => Vector3::zeros(),
-                            Some(f) => f(&fspl),
+                            Some(f) => f(&payload),
                         };
                         Rasterizer::set_pixel(
                             self.height,
@@ -186,9 +187,9 @@ impl Rasterizer {
             }
         }
     }
-    
-//插值：用来填充图像变换时像素之间的空隙(来源：百度百科)
-//在离散数据的基础上补插连续函数，使得这条连续曲线通过全部给定的离散数据点。
+
+    //插值：用来填充图像变换时像素之间的空隙(来源：百度百科)
+    //在离散数据的基础上补插连续函数，使得这条连续曲线通过全部给定的离散数据点。
     fn interpolate_vec3(
         a: f64,
         b: f64,

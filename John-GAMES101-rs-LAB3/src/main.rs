@@ -26,10 +26,11 @@ use utils::*;
  * displacement ->
  */
 fn main() -> Result<()> {
+    // let obj_file = "./models/spot/cube.obj";  cube只能做0，1，2
     let obj_file = "./models/spot/spot_triangulated_good.obj";
     let triangles = load_triangles(&obj_file);
     println!("load successfully");
-    
+
     let angle = 140.0;
     let mut r = Rasterizer::new(700, 700);
     let obj_path = "./models/spot/".to_owned();
